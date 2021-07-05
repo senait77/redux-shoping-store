@@ -1,143 +1,155 @@
-const { AuthenticationError } = require('apollo-server-express');
-const { User, Product, Category, Order } = require('../models');
-const { signToken } = require('../utils/auth');
-const stripe = require('stripe')('sk_test_4eC39HqLyjWDarjtT1zdp7dc');
+const db = require('./connection');
+const { User, Product, Category } = require('../models');
 
-const resolvers = {
-  Query: {
-    categories: async () => {
-      return await Category.find();
+db.once('open', async () => {
+  await Category.deleteMany();
+
+  const categories = await Category.insertMany([
+    { name: 'Food' },
+    { name: 'Household Supplies' },
+    { name: 'Electronics' },
+    { name: 'Books' },
+    { name: 'Toys' }
+  ]);
+
+  console.log('categories seeded');
+
+  await Product.deleteMany();
+
+  const products = await Product.insertMany([
+    {
+      name: 'Tin of Cookies',
+      description:
+        'Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.',
+      image: 'cookie-tin.jpg',
+      category: categories[0]._id,
+      price: 2.99,
+      quantity: 500
     },
-    products: async (parent, { category, name }) => {
-      const params = {};
-
-      if (category) {
-        params.category = category;
-      }
-
-      if (name) {
-        params.name = {
-          $regex: name
-        };
-      }
-
-      return await Product.find(params).populate('category');
+    {
+      name: 'Canned Coffee',
+      description:
+        'Praesent sed lacinia mauris. Nulla congue nibh magna, at feugiat nunc scelerisque quis. Donec iaculis rutrum vulputate. Suspendisse lectus sem, vulputate ac lectus sed, placerat consequat dui.',
+      image: 'canned-coffee.jpg',
+      category: categories[0]._id,
+      price: 1.99,
+      quantity: 500
     },
-    product: async (parent, { _id }) => {
-      return await Product.findById(_id).populate('category');
+    {
+      name: 'Toilet Paper',
+      category: categories[1]._id,
+      description:
+        'Donec volutpat erat erat, sit amet gravida justo sodales in. Phasellus tempus euismod urna. Proin ultrices nisi ut ipsum congue, vitae porttitor libero suscipit. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Aliquam lacinia a nisi non congue.',
+      image: 'toilet-paper.jpg',
+      price: 7.99,
+      quantity: 20
     },
-    user: async (parent, args, context) => {
-      if (context.user) {
-        const user = await User.findById(context.user._id).populate({
-          path: 'orders.products',
-          populate: 'category'
-        });
-
-        user.orders.sort((a, b) => b.purchaseDate - a.purchaseDate);
-
-        return user;
-      }
-
-      throw new AuthenticationError('Not logged in');
+    {
+      name: 'Handmade Soap',
+      category: categories[1]._id,
+      description:
+        'Praesent placerat, odio vel euismod venenatis, lectus arcu laoreet felis, et fringilla sapien turpis vestibulum nisl.',
+      image: 'soap.jpg',
+      price: 3.99,
+      quantity: 50
     },
-    order: async (parent, { _id }, context) => {
-      if (context.user) {
-        const user = await User.findById(context.user._id).populate({
-          path: 'orders.products',
-          populate: 'category'
-        });
-
-        return user.orders.id(_id);
-      }
-
-      throw new AuthenticationError('Not logged in');
+    {
+      name: 'Set of Wooden Spoons',
+      category: categories[1]._id,
+      description:
+        'Vivamus ut turpis in purus pretium mollis. Donec turpis odio, semper vel interdum ut, vulputate at ex. Duis dignissim nisi vel tortor imperdiet finibus. Aenean aliquam sagittis rutrum.',
+      image: 'wooden-spoons.jpg',
+      price: 14.99,
+      quantity: 100
     },
-    checkout: async (parent, args, context) => {
-      const url = new URL(context.headers.referer).origin;
-      const order = new Order({ products: args.products });
-      const line_items = [];
-
-      const { products } = await order.populate('products').execPopulate();
-
-      for (let i = 0; i < products.length; i++) {
-        const product = await stripe.products.create({
-          name: products[i].name,
-          description: products[i].description,
-          images: [`${url}/images/${products[i].image}`]
-        });
-
-        const price = await stripe.prices.create({
-          product: product.id,
-          unit_amount: products[i].price * 100,
-          currency: 'usd',
-        });
-
-        line_items.push({
-          price: price.id,
-          quantity: 1
-        });
-      }
-
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items,
-        mode: 'payment',
-        success_url: `${url}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${url}/`
-      });
-
-      return { session: session.id };
+    {
+      name: 'Camera',
+      category: categories[2]._id,
+      description:
+        'Vestibulum risus metus, luctus non tortor quis, tincidunt consectetur ex. Nullam vitae lobortis ligula, ut sagittis massa. Curabitur consectetur, tellus at pulvinar venenatis, erat augue cursus erat, eu ullamcorper eros lectus ultrices ipsum. Integer rutrum, augue vitae auctor venenatis, turpis turpis elementum orci, at sagittis risus mi a leo.',
+      image: 'camera.jpg',
+      price: 399.99,
+      quantity: 30
+    },
+    {
+      name: 'Tablet',
+      category: categories[2]._id,
+      description:
+        'In sodales, ipsum quis ultricies porttitor, tellus urna aliquam arcu, eget venenatis purus ligula ut nisi. Fusce ut felis dolor. Mauris justo ante, aliquet non tempus in, tempus ac lorem. Aliquam lacinia dolor eu sem eleifend ultrices. Etiam mattis metus metus. Sed ligula dui, placerat non turpis vitae, suscipit volutpat elit. Phasellus sagittis, diam elementum suscipit fringilla, libero mauris scelerisque ex, ac interdum diam erat non sapien.',
+      image: 'tablet.jpg',
+      price: 199.99,
+      quantity: 30
+    },
+    {
+      name: 'Tales at Bedtime',
+      category: categories[3]._id,
+      description:
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum ornare diam quis eleifend rutrum. Aliquam nulla est, volutpat non enim nec, pharetra gravida augue. Donec vitae dictum neque. Pellentesque arcu lorem, fringilla non ligula ac, tristique bibendum erat. Ut a semper nibh. Quisque a mi et mi tempor ultricies. Maecenas eu ipsum eu enim hendrerit accumsan at euismod urna.',
+      image: 'bedtime-book.jpg',
+      price: 9.99,
+      quantity: 100
+    },
+    {
+      name: 'Spinning Top',
+      category: categories[4]._id,
+      description: 'Ut vulputate hendrerit nibh, a placerat elit cursus interdum.',
+      image: 'spinning-top.jpg',
+      price: 1.99,
+      quantity: 1000
+    },
+    {
+      name: 'Set of Plastic Horses',
+      category: categories[4]._id,
+      description:
+        'Sed a mauris condimentum, elementum enim in, rhoncus dui. Phasellus lobortis leo odio, sit amet pharetra turpis porta quis.',
+      image: 'plastic-horses.jpg',
+      price: 2.99,
+      quantity: 1000
+    },
+    {
+      name: 'Teddy Bear',
+      category: categories[4]._id,
+      description:
+        'Vestibulum et erat finibus erat suscipit vulputate sed vitae dui. Ut laoreet tellus sit amet justo bibendum ultrices. Donec vitae felis vestibulum, congue augue eu, finibus turpis.',
+      image: 'teddy-bear.jpg',
+      price: 7.99,
+      quantity: 100
+    },
+    {
+      name: 'Alphabet Blocks',
+      category: categories[4]._id,
+      description:
+        'Morbi consectetur viverra urna, eu fringilla turpis faucibus sit amet. Suspendisse potenti. Donec at dui ac sapien eleifend hendrerit vel sit amet lectus.',
+      image: 'alphabet-blocks.jpg',
+      price: 9.99,
+      quantity: 600
     }
-  },
-  Mutation: {
-    addUser: async (parent, args) => {
-      const user = await User.create(args);
-      const token = signToken(user);
+  ]);
 
-      return { token, user };
-    },
-    addOrder: async (parent, { products }, context) => {
-      console.log(context);
-      if (context.user) {
-        const order = new Order({ products });
+  console.log('products seeded');
 
-        await User.findByIdAndUpdate(context.user._id, { $push: { orders: order } });
+  await User.deleteMany();
 
-        return order;
+  await User.create({
+    firstName: 'Pamela',
+    lastName: 'Washington',
+    email: 'pamela@testmail.com',
+    password: 'password12345',
+    orders: [
+      {
+        products: [products[0]._id, products[0]._id, products[1]._id]
       }
+    ]
+  });
 
-      throw new AuthenticationError('Not logged in');
-    },
-    updateUser: async (parent, args, context) => {
-      if (context.user) {
-        return await User.findByIdAndUpdate(context.user._id, args, { new: true });
-      }
+  await User.create({
+    firstName: 'Elijah',
+    lastName: 'Holt',
+    email: 'eholt@testmail.com',
+    password: 'password12345'
+  });
 
-      throw new AuthenticationError('Not logged in');
-    },
-    updateProduct: async (parent, { _id, quantity }) => {
-      const decrement = Math.abs(quantity) * -1;
+  console.log('users seeded');
 
-      return await Product.findByIdAndUpdate(_id, { $inc: { quantity: decrement } }, { new: true });
-    },
-    login: async (parent, { email, password }) => {
-      const user = await User.findOne({ email });
-
-      if (!user) {
-        throw new AuthenticationError('Incorrect credentials');
-      }
-
-      const correctPw = await user.isCorrectPassword(password);
-
-      if (!correctPw) {
-        throw new AuthenticationError('Incorrect credentials');
-      }
-
-      const token = signToken(user);
-
-      return { token, user };
-    }
-  }
-};
-
-module.exports = resolvers;
+  process.exit();
+});
