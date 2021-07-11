@@ -22,7 +22,7 @@
   
 💻 Below is a screenshot of the application:
   
-[book-search-engine]("./shop.png")
+[E-commerce-shopping]("./shop.png")
 
 ## User Story
 
