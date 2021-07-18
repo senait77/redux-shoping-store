@@ -22,7 +22,7 @@
   
 💻 Below is a screenshot of the application:
   
-[E-commerce-shopping]
+
 <p align="center">
     <img src="./shop.png" />  
 </p>
